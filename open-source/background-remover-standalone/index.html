@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Background Remover Standalone Demo</title>
+  <meta name="description" content="A standalone browser-based AI background remover with manual brush/eraser refinement. Uses @imgly/background-removal ONNX model.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0a;
+      --panel: rgba(255,255,255,.03);
+      --border: rgba(255,255,255,.08);
+      --border-strong: rgba(255,255,255,.14);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.45);
+      --soft: rgba(255,255,255,.28);
+      --accent: #ffffff;
+      --accent-text: #111111;
+      --danger: #ffb4b4;
+      --ok: #b8ffcf;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background-image: radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .container {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 72px;
+    }
+
+    .hero { text-align: center; padding: 28px 0 20px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-radius: 999px;
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07);
+      color: var(--soft); font-size: 12px; font-weight: 600;
+      letter-spacing: .08em; text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 14px;
+      font-size: clamp(2rem, 6vw, 3.8rem);
+      line-height: 1; letter-spacing: -.04em;
+    }
+
+    .hero p {
+      margin: 0 auto; max-width: 760px;
+      color: var(--muted); font-size: clamp(1rem, 2vw, 1.08rem); line-height: 1.75;
+    }
+
+    .hero-links {
+      display: flex; gap: 12px; justify-content: center;
+      flex-wrap: wrap; margin-top: 22px;
+    }
+
+    .hero-links a {
+      color: var(--muted); text-decoration: none;
+      border: 1px solid var(--border); background: rgba(255,255,255,.03);
+      padding: 10px 16px; border-radius: 12px; font-weight: 600; transition: .2s ease;
+    }
+
+    .hero-links a:hover {
+      color: var(--text); border-color: var(--border-strong); background: rgba(255,255,255,.06);
+    }
+
+    .panel {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 24px; backdrop-filter: blur(10px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+
+    .main-area { padding: 28px; margin-top: 26px; }
+
+    .dropzone {
+      border: 2px dashed var(--border); border-radius: 22px;
+      padding: 40px 24px; text-align: center;
+      background: rgba(255,255,255,.015); transition: .2s ease; cursor: pointer;
+    }
+
+    .dropzone.drag-over, .dropzone:hover {
+      border-color: var(--border-strong); background: rgba(255,255,255,.04);
+    }
+
+    .dropzone-icon {
+      width: 68px; height: 68px; border-radius: 20px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,.05); border: 1px solid var(--border);
+      margin-bottom: 18px; font-size: 28px;
+    }
+
+    .dropzone h2 { margin: 0 0 10px; font-size: 1.35rem; letter-spacing: -.02em; }
+    .dropzone p { margin: 0; color: var(--muted); line-height: 1.7; }
+
+    button {
+      appearance: none; border: 0; border-radius: 14px;
+      padding: 13px 18px; font: inherit; font-weight: 700;
+      cursor: pointer; transition: .2s ease;
+    }
+
+    .btn-primary { background: var(--accent); color: var(--accent-text); }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); background: rgba(255,255,255,.86); }
+
+    .btn-secondary {
+      background: rgba(255,255,255,.05); color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,.08); border-color: var(--border-strong); }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .hidden { display: none !important; }
+
+    .file-info {
+      margin-top: 18px; padding: 18px 22px;
+      display: flex; align-items: center; gap: 16px;
+      border-radius: 18px; background: rgba(255,255,255,.03); border: 1px solid var(--border);
+    }
+
+    .file-thumb {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(255,255,255,.05); border: 1px solid var(--border);
+      overflow: hidden; flex-shrink: 0;
+    }
+
+    .file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .file-meta { flex: 1; min-width: 0; }
+    .file-meta strong { display: block; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta span { color: var(--muted); font-size: .85rem; }
+
+    .action-bar {
+      margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    }
+
+    /* Overlay */
+    .overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(10,10,10,.97); backdrop-filter: blur(8px);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+    }
+
+    .overlay.active { display: flex; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 48px; height: 48px; border: 3px solid rgba(255,255,255,.1);
+      border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite;
+      margin-bottom: 28px;
+    }
+
+    .overlay h2 { font-size: 22px; margin-bottom: 8px; }
+    .overlay .desc { color: var(--muted); font-size: 14px; margin-bottom: 28px; line-height: 1.6; text-align: center; }
+
+    .progress-track {
+      width: 280px; height: 8px; border-radius: 999px;
+      background: rgba(255,255,255,.06); overflow: hidden; margin-bottom: 12px;
+    }
+
+    .progress-bar-inner {
+      width: 0%; height: 100%; border-radius: 999px;
+      background: #fff; transition: width .3s ease-out;
+    }
+
+    .overlay .status-text { font-size: 12px; color: var(--soft); }
+
+    /* Result area */
+    .result-area { margin-top: 24px; }
+
+    .mode-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px;
+    }
+
+    .tool-btn {
+      padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+      border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04);
+      color: rgba(255,255,255,.5); cursor: pointer; transition: all .25s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+
+    .tool-btn:hover { background: rgba(255,255,255,.08); color: rgba(255,255,255,.7); border-color: rgba(255,255,255,.15); }
+    .tool-btn.active { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.2); }
+
+    .refine-toolbar {
+      margin-bottom: 16px; padding: 16px 20px; border-radius: 18px;
+      background: rgba(255,255,255,.03); border: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+    }
+
+    .refine-toolbar .sep {
+      width: 1px; height: 24px; background: rgba(255,255,255,.1);
+    }
+
+    .refine-toolbar label {
+      font-size: 12px; color: rgba(255,255,255,.4); font-weight: 600; white-space: nowrap;
+    }
+
+    .slider-track {
+      -webkit-appearance: none; appearance: none; width: 100px; height: 6px;
+      background: rgba(255,255,255,.08); border-radius: 999px; outline: none;
+    }
+
+    .slider-track::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; cursor: pointer; border: 2px solid rgba(255,255,255,.3);
+    }
+
+    .slider-track::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; cursor: pointer; border: 2px solid rgba(255,255,255,.3);
+    }
+
+    .slider-val { font-size: 12px; color: var(--muted); min-width: 28px; text-align: right; }
+
+    .refine-hint {
+      margin-bottom: 12px; padding: 10px 16px; border-radius: 12px;
+      background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+      font-size: 12px; color: var(--muted); line-height: 1.6;
+    }
+
+    .refine-hint strong { color: rgba(255,255,255,.7); }
+    .refine-hint kbd {
+      background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 3px; font-size: 11px;
+    }
+
+    .canvas-wrapper {
+      border-radius: 18px; overflow: hidden; border: 1px solid var(--border);
+    }
+
+    .checker-bg {
+      background-image: linear-gradient(45deg, rgba(255,255,255,.05) 25%, transparent 25%),
+                        linear-gradient(-45deg, rgba(255,255,255,.05) 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.05) 75%),
+                        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.05) 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 300px; max-height: 70vh; overflow: hidden;
+    }
+
+    .canvas-inner { position: relative; display: inline-block; line-height: 0; }
+    #preview-canvas { display: block; max-width: 100%; max-height: 70vh; }
+    #edit-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; cursor: none; }
+
+    #brush-cursor {
+      position: fixed; pointer-events: none; z-index: 100;
+      border: 2px solid #fff; border-radius: 50%; transform: translate(-50%,-50%);
+      display: none; box-shadow: 0 0 0 1px rgba(0,0,0,.5);
+    }
+
+    .download-bar {
+      margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    }
+
+    .footnote {
+      margin-top: 24px; color: var(--soft); font-size: .9rem; line-height: 1.7;
+    }
+
+    .footnote code {
+      color: var(--text); background: rgba(255,255,255,.05); padding: 2px 6px; border-radius: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .container { width: min(100% - 20px, 1120px); }
+      .main-area { padding: 18px; }
+      .file-info { flex-direction: column; align-items: flex-start; }
+      .refine-toolbar { gap: 10px; }
+      .slider-track { width: 80px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="brush-cursor"></div>
+
+  <!-- Model loading overlay -->
+  <div id="overlay" class="overlay">
+    <div style="text-align:center;max-width:420px;padding:0 24px">
+      <div class="spinner"></div>
+      <h2 id="overlay-title">Loading AI Model...</h2>
+      <p class="desc" id="overlay-desc">First time takes ~30 seconds.<br>The model is cached for future use.</p>
+      <div class="progress-track">
+        <div id="overlay-progress" class="progress-bar-inner"></div>
+      </div>
+      <p class="status-text" id="overlay-status">Initializing...</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <section class="hero">
+      <div class="badge">Open Source Demo</div>
+      <h1>Background Remover</h1>
+      <p>
+        Remove image backgrounds instantly with AI, directly in the browser.
+        Uses <code>@imgly/background-removal</code> (ONNX model via WebAssembly) + Canvas mask editing with brush/eraser refinement.
+      </p>
+      <div class="hero-links">
+        <a href="https://toolknit.com/tools/background-remover.html" target="_blank" rel="noopener">Live ToolKnit Version</a>
+        <a href="https://github.com/2645149786-dotcom/toolknit" target="_blank" rel="noopener">GitHub Repo</a>
+      </div>
+    </section>
+
+    <section class="panel main-area">
+      <!-- Upload -->
+      <div id="upload-zone">
+        <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Upload image">
+          <div class="dropzone-icon">&#8593;</div>
+          <h2>Drop your image here</h2>
+          <p>Click to browse or drag a JPG, PNG, or WebP file. Max 20 MB.</p>
+          <div style="margin-top:24px">
+            <button id="browse-btn" class="btn-primary" type="button">Select Image</button>
+          </div>
+          <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden">
+        </div>
+      </div>
+
+      <!-- File info -->
+      <div id="file-info" class="file-info hidden">
+        <div class="file-thumb"><img id="file-thumb-img" src="" alt="" style="display:none"></div>
+        <div class="file-meta">
+          <strong id="file-name">image.png</strong>
+          <span><span id="file-size">0 KB</span> &mdash; <span id="file-dims">0×0</span></span>
+        </div>
+        <button id="remove-file-btn" class="btn-secondary" type="button" style="padding:8px 14px;font-size:.85rem">Remove</button>
+      </div>
+
+      <!-- Action bar -->
+      <div id="action-bar" class="action-bar hidden">
+        <button id="auto-remove-btn" class="btn-primary" type="button">Auto Remove Background</button>
+      </div>
+
+      <!-- Result area -->
+      <div id="result-area" class="result-area hidden">
+        <div class="mode-bar">
+          <button id="btn-preview" class="tool-btn active" type="button">Preview</button>
+          <button id="btn-refine" class="tool-btn" type="button">Refine Manually</button>
+          <div style="flex:1"></div>
+          <button id="btn-reprocess" class="tool-btn" type="button">Re-process</button>
+        </div>
+
+        <!-- Refine toolbar -->
+        <div id="refine-toolbar" class="refine-toolbar hidden">
+          <button id="tool-brush" class="tool-btn active" type="button">Brush</button>
+          <button id="tool-eraser" class="tool-btn" type="button">Eraser</button>
+          <div class="sep"></div>
+          <label>Size</label>
+          <input type="range" id="brush-size" min="5" max="100" value="30" class="slider-track">
+          <span id="brush-size-val" class="slider-val">30</span>
+          <div class="sep"></div>
+          <label>Softness</label>
+          <input type="range" id="brush-softness" min="0" max="100" value="20" class="slider-track">
+          <span id="brush-softness-val" class="slider-val">20</span>
+          <div class="sep"></div>
+          <button id="tool-undo" class="tool-btn" type="button">Undo</button>
+        </div>
+
+        <!-- Refine hint -->
+        <div id="refine-hint" class="refine-hint hidden">
+          <strong>Brush</strong> = restore foreground &nbsp;|&nbsp;
+          <strong>Eraser</strong> = remove to background &nbsp;|&nbsp;
+          Red overlay = areas being removed &nbsp;|&nbsp;
+          Shortcuts: <kbd>B</kbd> brush <kbd>E</kbd> eraser <kbd>[</kbd><kbd>]</kbd> size <kbd>Ctrl+Z</kbd> undo
+        </div>
+
+        <!-- Canvas -->
+        <div id="canvas-wrapper" class="canvas-wrapper">
+          <div class="checker-bg">
+            <div class="canvas-inner">
+              <canvas id="preview-canvas"></canvas>
+              <canvas id="edit-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Download -->
+        <div class="download-bar">
+          <button id="download-btn" class="btn-primary" type="button">Download PNG</button>
+          <button id="new-btn" class="btn-secondary" type="button">New Image</button>
+        </div>
+      </div>
+
+      <p class="footnote">
+        The AI model (<code>~40 MB</code>) downloads on first use and is cached by the browser.
+        Processing happens entirely on-device — no image data leaves your machine.
+      </p>
+    </section>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
