@@ -41,6 +41,16 @@ https://toolknit.com/tools/ai-to-png.html
 
 This release also expands the image workflow by pairing well with background removal and other lightweight image utilities.
 
+## Open source
+
+### AI to PNG Standalone Demo
+
+A minimal extraction of the browser-based AI to PNG conversion flow, ready to run independently.
+
+- Path: [`open-source/ai-to-png-standalone/`](./open-source/ai-to-png-standalone/)
+- Stack: PDF.js + Canvas API + JSZip
+- No server, no signup, no analytics — just the core conversion logic
+
 ## Notes
 
-This repository is mainly used for product documentation, release notes, and general project presence for ToolKnit.
+This repository is mainly used for product documentation, release notes, open-source demos, and general project presence for ToolKnit.

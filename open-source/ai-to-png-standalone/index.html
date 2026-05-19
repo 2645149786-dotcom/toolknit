@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI to PNG Standalone Demo</title>
+  <meta name="description" content="A standalone browser-based AI to PNG demo using PDF.js, Canvas, and JSZip.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0a;
+      --panel: rgba(255,255,255,.03);
+      --panel-strong: rgba(255,255,255,.05);
+      --border: rgba(255,255,255,.08);
+      --border-strong: rgba(255,255,255,.14);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.45);
+      --soft: rgba(255,255,255,.28);
+      --accent: #ffffff;
+      --accent-text: #111111;
+      --danger: #ffb4b4;
+      --ok: #b8ffcf;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-image: radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .container {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 72px;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 28px 0 20px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      color: var(--soft);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 14px;
+      font-size: clamp(2rem, 6vw, 3.8rem);
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
+
+    .hero p {
+      margin: 0 auto;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.08rem);
+      line-height: 1.75;
+    }
+
+    .hero-links {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+
+    .hero-links a {
+      color: var(--muted);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      transition: .2s ease;
+    }
+
+    .hero-links a:hover {
+      color: var(--text);
+      border-color: var(--border-strong);
+      background: rgba(255,255,255,.06);
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+
+    .uploader {
+      padding: 28px;
+      margin-top: 26px;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 22px;
+      padding: 40px 24px;
+      text-align: center;
+      background: rgba(255,255,255,.015);
+      transition: .2s ease;
+      cursor: pointer;
+    }
+
+    .dropzone.drag-over,
+    .dropzone:hover {
+      border-color: var(--border-strong);
+      background: rgba(255,255,255,.04);
+    }
+
+    .dropzone-icon {
+      width: 68px;
+      height: 68px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      margin-bottom: 18px;
+      font-size: 28px;
+    }
+
+    .dropzone h2 {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+      letter-spacing: -.02em;
+    }
+
+    .dropzone p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    button,
+    .button-link {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .2s ease;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-text);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,.86);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255,255,255,.08);
+      border-color: var(--border-strong);
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .hidden { display: none !important; }
+
+    .file-card,
+    .settings,
+    .progress,
+    .results {
+      margin-top: 18px;
+      padding: 22px;
+    }
+
+    .file-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .file-meta strong {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .file-meta span {
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .field label {
+      display: block;
+      color: var(--soft);
+      font-size: .9rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    select,
+    input[type="text"] {
+      width: 100%;
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 13px 14px;
+      font: inherit;
+      outline: none;
+    }
+
+    .status {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .status.error {
+      color: var(--danger);
+      border-color: rgba(255,180,180,.22);
+      background: rgba(255,90,90,.06);
+    }
+
+    .status.success {
+      color: var(--ok);
+      border-color: rgba(184,255,207,.22);
+      background: rgba(80,255,140,.05);
+    }
+
+    .progress-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .progress-top strong { font-size: .96rem; }
+    .progress-top span,
+    .progress small { color: var(--muted); }
+
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,.05);
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 100%;
+      background: #fff;
+      transition: width .25s ease;
+    }
+
+    .results-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .results-top h3 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.025);
+    }
+
+    .card-preview {
+      aspect-ratio: 4 / 5;
+      background: rgba(255,255,255,.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .card-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .card-body {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-body strong {
+      font-size: .9rem;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .card-body span {
+      color: var(--muted);
+      font-size: .82rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .actions button {
+      flex: 1 1 auto;
+      min-width: 110px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: .88rem;
+    }
+
+    .footnote {
+      margin-top: 24px;
+      color: var(--soft);
+      font-size: .9rem;
+      line-height: 1.7;
+    }
+
+    .footnote code {
+      color: var(--text);
+      background: rgba(255,255,255,.05);
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .container { width: min(100% - 20px, 1120px); }
+      .uploader,
+      .file-card,
+      .settings,
+      .progress,
+      .results { padding: 18px; }
+      .dropzone { padding: 30px 18px; }
+      .file-card { flex-direction: column; align-items: flex-start; }
+      .actions button { min-width: unset; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <div class="badge">Standalone Open Source Demo</div>
+      <h1>AI to PNG</h1>
+      <p>
+        Convert supported Adobe Illustrator <code>.ai</code> files to PNG directly in the browser using PDF.js and the Canvas API.
+        This extracted demo keeps the core conversion flow and removes ToolKnit-specific usage limits, analytics, and local history logic.
+      </p>
+      <div class="hero-links">
+        <a href="https://toolknit.com/tools/ai-to-png.html" target="_blank" rel="noopener">Live ToolKnit Version</a>
+        <a href="https://toolknit.com/blog/ai-to-png.html" target="_blank" rel="noopener">Release Notes</a>
+      </div>
+    </section>
+
+    <section class="panel uploader">
+      <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Upload AI file">
+        <div class="dropzone-icon">↥</div>
+        <h2>Drop your AI file here</h2>
+        <p>Click to browse or drag a file into the dropzone. Only PDF-compatible AI files are supported. Maximum file size: 50 MB.</p>
+        <div class="btn-row">
+          <button id="browse-btn" class="btn-primary" type="button">Select AI File</button>
+        </div>
+        <input id="file-input" type="file" accept=".ai" class="hidden">
+      </div>
+
+      <div id="file-card" class="panel file-card hidden">
+        <div class="file-meta">
+          <strong id="file-name">design.ai</strong>
+          <span id="file-details">0 KB · 0 artboards</span>
+        </div>
+        <button id="remove-btn" class="btn-secondary" type="button">Remove file</button>
+      </div>
+
+      <div id="settings" class="panel settings hidden">
+        <div class="settings-grid">
+          <div class="field">
+            <label for="resolution-select">Resolution</label>
+            <select id="resolution-select">
+              <option value="1">Standard (1x · 72 DPI)</option>
+              <option value="2" selected>High Definition (2x · 144 DPI)</option>
+              <option value="3">Ultra HD (3x · 216 DPI)</option>
+              <option value="4">Print Quality (4x · 288 DPI)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Output</label>
+            <input type="text" value="PNG · Lossless with transparency" readonly>
+          </div>
+        </div>
+        <div class="btn-row" style="justify-content:flex-start; margin-top:0;">
+          <button id="convert-btn" class="btn-primary" type="button" disabled>Start Conversion</button>
+          <button id="cancel-btn" class="btn-secondary hidden" type="button">Cancel</button>
+          <button id="reset-btn" class="btn-secondary hidden" type="button">Start Over</button>
+        </div>
+      </div>
+
+      <div id="status-message" class="status hidden"></div>
+
+      <div id="progress-section" class="panel progress hidden">
+        <div class="progress-top">
+          <strong>Conversion Progress</strong>
+          <span id="progress-text">0 / 0 artboards</span>
+        </div>
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <small id="progress-detail">Preparing…</small>
+      </div>
+
+      <div id="results-section" class="panel results hidden">
+        <div class="results-top">
+          <h3>Converted Images</h3>
+          <button id="download-all-btn" class="btn-primary" type="button" disabled>Download All (ZIP)</button>
+        </div>
+        <div id="results-grid" class="grid"></div>
+      </div>
+
+      <p class="footnote">
+        Supported files: AI documents saved with a PDF-compatible layer, typically Illustrator CS and later.
+        Very old pure-PostScript AI files are not supported. For local testing, use a simple static server or GitHub Pages instead of <code>file://</code> when possible.
+      </p>
+    </section>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
