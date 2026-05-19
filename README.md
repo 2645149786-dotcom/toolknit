@@ -51,6 +51,14 @@ A minimal extraction of the browser-based AI to PNG conversion flow, ready to ru
 - Stack: PDF.js + Canvas API + JSZip
 - No server, no signup, no analytics — just the core conversion logic
 
+### Background Remover Standalone Demo
+
+AI-powered background removal running entirely in the browser with manual brush/eraser refinement.
+
+- Path: [`open-source/background-remover-standalone/`](./open-source/background-remover-standalone/)
+- Stack: @imgly/background-removal (ONNX via WebAssembly) + Canvas mask editing
+- Features: auto AI removal, manual brush/eraser, undo, keyboard shortcuts, touch support
+
 ## Notes
 
 This repository is mainly used for product documentation, release notes, open-source demos, and general project presence for ToolKnit.
