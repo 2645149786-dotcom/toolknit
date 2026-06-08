@@ -77,7 +77,7 @@
 ### 🎵 Music Tools (3)
 | Tool | What it does |
 |---|---|
-| [MIDI Keyboard](https://toolknit.com/tools/midi-keyboard.html) | Virtual keyboard with Web Audio + Web MIDI API |
+| [MIDI Keyboard](https://toolknit.com/tools/midi-keyboard.html) | 8 timbres (Piano, Organ, Synth, Strings, Pipa, Guitar, Flute, Music Box), record & export .mid, Web MIDI output |
 | [Metronome](https://toolknit.com/tools/metronome.html) | Precise metronome built with Web Audio API |
 | [BPM Detector](https://toolknit.com/tools/bpm-detector.html) | Analyze audio tempo client-side |
 
